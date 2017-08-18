@@ -1,7 +1,7 @@
 Intro
 =====
 
-This is a simple PAM module which will test for existance of a special mount.
+This is a simple PAM module which will (in future) test for existance of a special mount.
 
 `gcc -fPIC -fno-stack-protector -c src/refpi_pam.c`
 
