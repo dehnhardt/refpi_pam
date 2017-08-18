@@ -1,15 +1,11 @@
 Intro
 =====
 
-This is just a simple PAM module and test code for it. There really isn't much to it, but it does make a good example of how to get started with a PAM module.
+This is a simple PAM module which will test for existance of a special mount.
 
-To build, either use the build scripts or use these commands:
+`gcc -fPIC -fno-stack-protector -c src/refpi_pam.c`
 
-**Build the PAM module**
-
-`gcc -fPIC -fno-stack-protector -c src/mypam.c`
-
-`sudo ld -x --shared -o /lib/security/mypam.so mypam.o`
+`sudo ld -x --shared -o /lib/security/refpi_pam.so refpi_pam.o`
 
 The first command builds the object file in the current directory and the second links it with PAM. Since it's a shared library, PAM can use it on the fly without having to restart.
 
@@ -32,8 +28,7 @@ The config files are located in `/etc/pam.d/` and the one I edited was `/etc/pam
 
 The test application tests auth and account functionality (although account isn't very interesting). At the top of the pam file (or anywhere), put these lines:
 
-	auth sufficient mypam.so
-	account sufficient mypam.so
+	account sufficient refpi_pam.so
 
 I think the account part should technically go in `/etc/pam.d/common-account`, but I put mine in the same place so I'd remember to take them out later.
 
@@ -42,24 +37,4 @@ To run the test program, just do: `pam_test backdoor` and you should get some me
 Resources
 =========
 
-I found these resources especially helpful:
-
-O'Reilly Guides:
-----------------
-
-These guides give brief overviews about PAM and how to write modules.  This is useful if you already have a little knowledge.
-
-* [Writing PAM Modules, Part One](http://linuxdevcenter.com/pub/a/linux/2002/05/02/pam_modules.html)
-* [Writing PAM Modules, Part Two](http://linuxdevcenter.com/pub/a/linux/2002/05/23/pam_modules.html)
-* [Writing PAM Modules, Part Three](http://linuxdevcenter.com/pub/a/linux/2002/05/30/pam_modules.html)
-
-Others
-------
-
-Good example for simple authentication.  I adapted this one in my simple PAM module.
-
-[2-factor authentication & writing PAM modules](http://ben.akrin.com/?p=1068)
-
-Gives an example program that uses PAM. I adapted this for testing my PAM module.
-
-[Example PAM application](http://www.kernel.org/pub/linux/libs/pam/Linux-PAM-html/adg-example.html)
+The code was copied from https://github.com/beatgammit/simple-pam
