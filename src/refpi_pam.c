@@ -9,11 +9,12 @@
 
 #include "exitcodes.h"
 
-static int volume_is_mounted( char * label );
+static int volume_is_mounted( char * label, int debug );
 static int table_parser_errcb(struct libmnt_table *tb,
 			const char *filename, int line);
 static void safe_fputs(const char *data);
 static int mnt_fs_debug(struct libmnt_fs *fs);
+static char *trimwhitespace(char *str);
 
 
 /* expected hook */
@@ -24,17 +25,58 @@ PAM_EXTERN int pam_sm_setcred( pam_handle_t *pamh, int flags, int argc, const ch
 
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) {
 	int retval;
-	printf("Acct mgmt\n");
+	int i;
+	char *volume;
+	int debug = 0;
+
+	for( i = 0; i < argc; i++ ){
+		char * split = NULL;
+		char * param = NULL;
+		char * value = NULL;
+		size_t argl = strlen(argv[i]);
+		char argument[argl+1];
+		memset(argument, '\0', sizeof(argument));
+		strcpy( argument, argv[i]);
+		split = strtok(argument, "=");
+		if( split != NULL ){
+			int j = 0;
+			while( split != NULL ){
+		      if( j == 0)
+		    	  param = trimwhitespace(split);
+		      if( j == 1)
+		    	  value = trimwhitespace(split);
+		      split = strtok(NULL, "-");
+		      ++ j;
+			}
+			printf( "Parameter %d: %s (Value '%s') \n", i, param, value);
+		}
+		else
+		{
+			param = trimwhitespace(argument);
+			printf( "Parameter %d: %s \n", i, argument);
+		}
+		if( strcmp(param, "mount") == 0 ){
+			volume = calloc(strlen(value), sizeof(char*));
+			strcpy(volume, value);
+		}
+		if( strcmp(param, "debug") == 0 ){
+			char *ptr;
+			debug = strtol(value, &ptr, 10);
+		}
+	}
+	if( debug )
+		printf("Acct mgmt (%s) \n", volume);
 	const char* pUser;
 	retval = pam_get_user(pamh, &pUser, NULL);
 	if( retval == 0 )
-		printf("This is  %s\n", pUser);
+		if(debug) printf("This is %s\n", pUser);
 	if( strcmp(pUser, "root") == 0)
 		return PAM_SUCCESS;
-	switch( volume_is_mounted("/") ){
-		case 0: return PAM_SUCCESS;
-		default: return PAM_SUCCESS;
-	}
+	if( volume != NULL )
+		switch( volume_is_mounted(volume, debug) ){
+			case 0: return PAM_SUCCESS;
+			default: return PAM_SUCCESS;
+		}
 	return PAM_SUCCESS;
 }
 
@@ -58,7 +100,7 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t *pamh, int flags,int argc, cons
 	return PAM_SUCCESS;
 }
 
-static int volume_is_mounted( char * label ){
+static int volume_is_mounted( char * label, int debug ){
 	struct libmnt_context *cxt;
 	struct libmnt_table *tb;
 	struct libmnt_iter *itr = NULL;
@@ -68,6 +110,9 @@ static int volume_is_mounted( char * label ){
 	if (!cxt)
 		err(MOUNT_EX_SYSERR, "libmount context allocation failed");
 
+	printf( "Debug in call to volume_is_mounted: %d\n", debug);
+
+	printf( "Lookup if Volume %s is mounted\n", label);
 
 	mnt_context_set_tables_errcb(cxt, table_parser_errcb);
 
@@ -90,31 +135,31 @@ static int volume_is_mounted( char * label ){
 		target = mnt_fs_get_target(fs);
 		if( strcmp(label, target) != 0)
 			continue;
-		mnt_fs_debug(fs);
+		if( debug) mnt_fs_debug(fs);
 		srcpath = mnt_fs_get_srcpath(fs);
 		if (!srcpath) {
 			const char *tag, *val;
 			if (mnt_fs_get_tag(fs, &tag, &val) == 0)
-				printf("%s: %s\n", tag, val);	// LABEL or UUID
+				if( debug) printf("%s: %s\n", tag, val);	// LABEL or UUID
 		} else{
-			printf("device: %s\n", srcpath);		// device or bind path
+			if( debug) printf("device: %s\n", srcpath);		// device or bind path
 		}
 		if (!mnt_fs_is_pseudofs(fs))
 			xsrc = mnt_pretty_path(src, cache);
-		printf ("%s on ", xsrc ? xsrc : src);
+		if( debug) printf ("%s on ", xsrc ? xsrc : src);
 		safe_fputs(target);
 
 		if (type)
-			printf (" type %s", type);
+			if( debug) printf (" type %s", type);
 		if (optstr)
-			printf (" (%s)", optstr);
+			if( debug) printf (" (%s)", optstr);
 		if ( src) {
 			char *lb = mnt_cache_find_tag_value(cache, src, "LABEL");
 			if (lb)
-				printf (" [%s]", lb);
+				if( debug) printf (" [%s]", lb);
 		}
-		fputc('\n', stdout);
-		printf ("RAW: %s \n", src);
+		if( debug) fputc('\n', stdout);
+		if( debug) printf ("RAW: %s \n", src);
 		free(xsrc);
 	}
 
@@ -123,7 +168,7 @@ static int volume_is_mounted( char * label ){
 
 	mnt_free_context(cxt);
 
-	printf("%s\n",label);
+	if( debug) printf("%s\n",label);
 	return 0;
 }
 
@@ -205,4 +250,24 @@ static int mnt_fs_debug(struct libmnt_fs *fs)
 		printf( "comment: '%s'\n", mnt_fs_get_comment(fs));
 
 	return 0;
+}
+
+static char *trimwhitespace(char *str)
+{
+  char *end;
+
+  // Trim leading space
+  while(isspace((unsigned char)*str)) str++;
+
+  if(*str == 0)  // All spaces?
+    return str;
+
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+
+  // Write new null terminator
+  *(end+1) = 0;
+
+  return str;
 }
