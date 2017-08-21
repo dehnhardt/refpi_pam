@@ -174,7 +174,7 @@ static int volume_is_mounted( char * label, int debug ){
 
 	mnt_free_context(cxt);
 
-	if( debug) printf("%s\n",label);
+	if( debug) printf("Label %s mounted: %d\n",label, retval );
 	return retval;
 }
 
