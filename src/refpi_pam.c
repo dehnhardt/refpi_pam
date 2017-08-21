@@ -75,7 +75,8 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
 	if( volume != NULL )
 		switch( volume_is_mounted(volume, debug) ){
 			case 0: return PAM_SUCCESS;
-			default: return PAM_SUCCESS;
+			case 1: return PAM_AUTH_ERR;
+			default: return PAM_AUTH_ERR;
 		}
 	return PAM_SUCCESS;
 }
@@ -101,6 +102,7 @@ PAM_EXTERN int pam_sm_authenticate( pam_handle_t *pamh, int flags,int argc, cons
 }
 
 static int volume_is_mounted( char * label, int debug ){
+	int retval = 0;
 	struct libmnt_context *cxt;
 	struct libmnt_table *tb;
 	struct libmnt_iter *itr = NULL;
@@ -135,6 +137,10 @@ static int volume_is_mounted( char * label, int debug ){
 		target = mnt_fs_get_target(fs);
 		if( strcmp(label, target) != 0)
 			continue;
+		else{
+			retval = 1;
+			break;
+		}
 		if( debug) mnt_fs_debug(fs);
 		srcpath = mnt_fs_get_srcpath(fs);
 		if (!srcpath) {
@@ -169,7 +175,7 @@ static int volume_is_mounted( char * label, int debug ){
 	mnt_free_context(cxt);
 
 	if( debug) printf("%s\n",label);
-	return 0;
+	return retval;
 }
 
 static int table_parser_errcb(struct libmnt_table *tb __attribute__((__unused__)),
