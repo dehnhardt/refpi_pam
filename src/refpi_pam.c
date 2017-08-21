@@ -72,12 +72,21 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
 		if(debug) printf("This is %s\n", pUser);
 	if( strcmp(pUser, "root") == 0)
 		return PAM_SUCCESS;
-	if( volume != NULL )
-		switch( volume_is_mounted(volume, debug) ){
-			case 0: return PAM_SUCCESS;
-			case 1: return PAM_AUTH_ERR;
-			default: return PAM_AUTH_ERR;
+	if( volume != NULL ){
+		int is_mounted = volume_is_mounted(volume, debug);
+		if( debug ) printf("returnval: %d \n", is_mounted);
+		switch( is_mounted ){
+			case 0:
+				if( debug ) printf("Error \n");
+				return PAM_AUTH_ERR;
+			case 1:
+				if( debug ) printf("Success \n");
+				return PAM_SUCCESS;
+			default:
+				if( debug ) printf("Error \n");
+				return PAM_AUTH_ERR;
 		}
+	}
 	return PAM_SUCCESS;
 }
 
@@ -138,6 +147,7 @@ static int volume_is_mounted( char * label, int debug ){
 		if( strcmp(label, target) != 0)
 			continue;
 		else{
+			if( debug) printf ("Volume %s mounted ", target);
 			retval = 1;
 			break;
 		}
